@@ -1,0 +1,37 @@
+window.HATEXPLAIN_COUNTS = {
+  "dataset": "clean_hateXplain.csv",
+  "totalComments": 20109,
+  "commentsWithMultipleTargets": 5560,
+  "categories": [
+    {
+      "key": "race",
+      "label": "Race",
+      "count": 6530,
+      "description": "Counts comments with a race target label."
+    },
+    {
+      "key": "religion",
+      "label": "Religion",
+      "count": 4722,
+      "description": "Counts comments with a religion target label."
+    },
+    {
+      "key": "gender",
+      "label": "Gender",
+      "count": 3729,
+      "description": "Counts comments with a gender target label."
+    },
+    {
+      "key": "sexual-orientation",
+      "label": "Sexual Orientation",
+      "count": 2282,
+      "description": "Counts comments with a sexual orientation target label."
+    },
+    {
+      "key": "miscellaneous",
+      "label": "Miscellaneous",
+      "count": 3533,
+      "description": "Counts comments with a miscellaneous target label."
+    }
+  ]
+};

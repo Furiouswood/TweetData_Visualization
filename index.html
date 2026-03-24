@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HateXplain Category Counts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="chart-panel" aria-labelledby="chart-title">
+        <div class="panel-intro">
+          <p class="eyebrow">Clean HateXplain Overview</p>
+          <h1 id="chart-title">How many comments target each hate category?</h1>
+          <p class="lede">
+            This draft bar chart counts comments in
+            <span>race</span>, <span>religion</span>, <span>gender</span>,
+            <span>sexual orientation</span>, and <span>miscellaneous</span>
+            using the cleaned dataset.
+          </p>
+        </div>
+
+        <section class="chart-stage" aria-labelledby="bars-heading">
+          <div class="chart-header">
+            <div>
+              <p class="section-label">Bar Chart Draft</p>
+              <h2 id="bars-heading">Category counts from <code>clean_hateXplain.csv</code></h2>
+            </div>
+            <div class="meta-pill" id="comment-total">Loading dataset...</div>
+          </div>
+
+          <div class="chart-grid" id="chart-grid" aria-live="polite"></div>
+        </section>
+
+        <section class="stats-row" aria-label="Dataset summary">
+          <article class="stat">
+            <p class="stat-label">Total comments</p>
+            <p class="stat-value" id="total-comments">--</p>
+          </article>
+          <article class="stat">
+            <p class="stat-label">Comments with multiple targets</p>
+            <p class="stat-value" id="multiple-targets">--</p>
+          </article>
+          <article class="stat">
+            <p class="stat-label">Counting rule</p>
+            <p class="stat-copy">A category is counted when its column has a real label instead of a “no target” placeholder.</p>
+          </article>
+        </section>
+
+        <p class="footnote" id="chart-note">
+          One comment can contribute to more than one bar because the dataset can assign multiple target types to the same comment.
+        </p>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+    <script src="./data/category_counts.js"></script>
+    <script src="./script.js" defer></script>
+  </body>
+</html>
