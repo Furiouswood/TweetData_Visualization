@@ -260,6 +260,69 @@ h2 {
   filter: drop-shadow(0 9px 10px rgba(100, 66, 44, 0.2));
 }
 
+.bar-group--clickable {
+  cursor: pointer;
+  outline: none;
+}
+
+.bar-group--clickable:hover .bar-lane,
+.bar-group--clickable:focus-visible .bar-lane {
+  fill: rgba(239, 228, 211, 0.68);
+  stroke: rgba(214, 90, 49, 0.25);
+}
+
+.drill-down-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.75rem 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.drill-down-bar[aria-hidden="false"].drill-down-bar--visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.back-button:hover {
+  background: var(--paper-strong);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+
+.back-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.drill-down-title {
+  margin: 0;
+  font-family: "Instrument Serif", serif;
+  font-size: 1.35rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 .stats-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
