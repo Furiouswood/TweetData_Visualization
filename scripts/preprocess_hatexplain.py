@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import csv
 import json
+from collections import Counter
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE_CSV = ROOT / "clean_hateXplain.csv"
+SOURCE_CSV = ROOT / "project" / "clean_hateXplain.csv"
+if not SOURCE_CSV.exists():
+    SOURCE_CSV = ROOT / "clean_hateXplain.csv"
 OUTPUT_JSON = ROOT / "data" / "category_counts.json"
 OUTPUT_JS = ROOT / "data" / "category_counts.js"
 
@@ -49,6 +52,7 @@ CATEGORY_RULES = [
 
 def load_counts() -> dict:
     counts = {rule["label"]: 0 for rule in CATEGORY_RULES}
+    breakdowns = {rule["label"]: Counter() for rule in CATEGORY_RULES}
     total_comments = 0
     comments_with_multiple_targets = 0
 
@@ -62,6 +66,7 @@ def load_counts() -> dict:
                 raw_value = (row.get(rule["column"]) or "").strip()
                 if raw_value and raw_value != rule["empty_value"]:
                     counts[rule["label"]] += 1
+                    breakdowns[rule["label"]][raw_value] += 1
                     active_targets += 1
 
             if active_targets > 1:
@@ -77,6 +82,10 @@ def load_counts() -> dict:
                 "label": rule["label"],
                 "count": counts[rule["label"]],
                 "description": rule["description"],
+                "breakdown": [
+                    {"label": sub_label, "count": sub_count}
+                    for sub_label, sub_count in breakdowns[rule["label"]].most_common()
+                ],
             }
             for rule in CATEGORY_RULES
         ],
