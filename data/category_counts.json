@@ -7,31 +7,133 @@
       "key": "race",
       "label": "Race",
       "count": 6530,
-      "description": "Counts comments with a race target label."
+      "description": "Counts comments with a race target label.",
+      "breakdown": [
+        {
+          "label": "African",
+          "count": 3769
+        },
+        {
+          "label": "Arab",
+          "count": 1172
+        },
+        {
+          "label": "Caucasian",
+          "count": 802
+        },
+        {
+          "label": "Asian",
+          "count": 400
+        },
+        {
+          "label": "Hispanic",
+          "count": 313
+        },
+        {
+          "label": "Indigenous",
+          "count": 42
+        },
+        {
+          "label": "Indian",
+          "count": 32
+        }
+      ]
     },
     {
       "key": "religion",
       "label": "Religion",
       "count": 4722,
-      "description": "Counts comments with a religion target label."
+      "description": "Counts comments with a religion target label.",
+      "breakdown": [
+        {
+          "label": "Islam",
+          "count": 2559
+        },
+        {
+          "label": "Jewish",
+          "count": 1950
+        },
+        {
+          "label": "Christian",
+          "count": 163
+        },
+        {
+          "label": "Hindu",
+          "count": 42
+        },
+        {
+          "label": "Buddhism",
+          "count": 8
+        }
+      ]
     },
     {
       "key": "gender",
       "label": "Gender",
       "count": 3729,
-      "description": "Counts comments with a gender target label."
+      "description": "Counts comments with a gender target label.",
+      "breakdown": [
+        {
+          "label": "Women",
+          "count": 2262
+        },
+        {
+          "label": "Men",
+          "count": 1467
+        }
+      ]
     },
     {
       "key": "sexual-orientation",
       "label": "Sexual Orientation",
       "count": 2282,
-      "description": "Counts comments with a sexual orientation target label."
+      "description": "Counts comments with a sexual orientation target label.",
+      "breakdown": [
+        {
+          "label": "Homosexual",
+          "count": 2163
+        },
+        {
+          "label": "Heterosexual",
+          "count": 113
+        },
+        {
+          "label": "Asexual",
+          "count": 4
+        },
+        {
+          "label": "Bisexual",
+          "count": 2
+        }
+      ]
     },
     {
       "key": "miscellaneous",
       "label": "Miscellaneous",
       "count": 3533,
-      "description": "Counts comments with a miscellaneous target label."
+      "description": "Counts comments with a miscellaneous target label.",
+      "breakdown": [
+        {
+          "label": "Other",
+          "count": 2017
+        },
+        {
+          "label": "Refugee",
+          "count": 1274
+        },
+        {
+          "label": "Minority",
+          "count": 107
+        },
+        {
+          "label": "Disability",
+          "count": 96
+        },
+        {
+          "label": "Economic",
+          "count": 39
+        }
+      ]
     }
   ]
 }
