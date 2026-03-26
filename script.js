@@ -3,7 +3,12 @@ const totalComments = document.getElementById("total-comments");
 const multipleTargets = document.getElementById("multiple-targets");
 const commentTotal = document.getElementById("comment-total");
 const chartNote = document.getElementById("chart-note");
+const drillDownHeader = document.getElementById("drill-down-header");
+const backButton = document.getElementById("back-button");
 const STONE_IMAGE_PATH = "./stone.png";
+
+let chartData = null;
+let drillDownCategory = null;
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 const STONE_UNIT = 1000;
@@ -25,6 +30,28 @@ function splitLabel(label) {
 function renderError(message) {
   chartGrid.innerHTML = `<p class="is-error">${message}</p>`;
   commentTotal.textContent = "Data unavailable";
+  hideDrillDownHeader();
+}
+
+function showDrillDownHeader(category) {
+  if (!drillDownHeader) return;
+  drillDownHeader.setAttribute("aria-hidden", "false");
+  const titleEl = document.getElementById("drill-down-title");
+  if (titleEl) titleEl.textContent = `${category.label} distribution`;
+  drillDownHeader.classList.add("drill-down-bar--visible");
+}
+
+function hideDrillDownHeader() {
+  if (!drillDownHeader) return;
+  drillDownHeader.setAttribute("aria-hidden", "true");
+  drillDownHeader.classList.remove("drill-down-bar--visible");
+}
+
+function handleBackClick() {
+  if (chartData) {
+    renderChart(chartData);
+    hideDrillDownHeader();
+  }
 }
 
 function addWrappedLabel(selection, label, x, y) {
@@ -45,14 +72,20 @@ function addWrappedLabel(selection, label, x, y) {
   });
 }
 
-function renderChart(data) {
+function renderChart(data, drillDown = null) {
   if (!window.d3) {
     renderError("D3 did not load. Connect to the internet and reload the page.");
     return;
   }
 
+  chartData = data;
+  drillDownCategory = drillDown;
+
   const d3 = window.d3;
-  const categories = [...data.categories].sort((a, b) => b.count - a.count);
+  const isBreakdown = drillDown && drillDown.breakdown && drillDown.breakdown.length > 0;
+  const categories = isBreakdown
+    ? [...drillDown.breakdown].sort((a, b) => b.count - a.count)
+    : [...data.categories].sort((a, b) => b.count - a.count);
   const maxCount = d3.max(categories, (category) => category.count);
   const yMax = Math.ceil(maxCount / STONE_UNIT) * STONE_UNIT;
   const chartLeft = MARGIN.left;
@@ -82,7 +115,9 @@ function renderChart(data) {
     .attr("role", "img")
     .attr(
       "aria-label",
-      "Vertical D3 bar chart of HateXplain category counts, using stacked stone images where each stone represents one thousand comments."
+      isBreakdown
+        ? `Distribution breakdown for ${drillDown.label}`
+        : "Vertical D3 bar chart of HateXplain category counts, using stacked stone images where each stone represents one thousand comments. Click a category to see its distribution."
     );
 
   const defs = svg.append("defs");
@@ -149,11 +184,46 @@ function renderChart(data) {
 
   const groups = root
     .selectAll(".bar-group")
-    .data(categories)
+    .data(categories, (d) => d.label)
     .enter()
     .append("g")
-    .attr("class", "bar-group")
-    .attr("transform", (category) => `translate(${x(category.label)},0)`);
+    .attr("class", (d) => {
+      const hasBreakdown = !isBreakdown && chartData?.categories?.find((c) => c.label === d.label)?.breakdown?.length;
+      return `bar-group${hasBreakdown ? " bar-group--clickable" : ""}`;
+    })
+    .attr("transform", (category) => `translate(${x(category.label)},0)`)
+    .attr("role", (d) => {
+      const hasBreakdown = !isBreakdown && chartData?.categories?.find((c) => c.label === d.label)?.breakdown?.length;
+      return hasBreakdown ? "button" : null;
+    })
+    .attr("tabindex", (d) => {
+      const hasBreakdown = !isBreakdown && chartData?.categories?.find((c) => c.label === d.label)?.breakdown?.length;
+      return hasBreakdown ? 0 : null;
+    })
+    .attr("aria-label", (d) => {
+      const hasBreakdown = !isBreakdown && chartData?.categories?.find((c) => c.label === d.label)?.breakdown?.length;
+      return hasBreakdown ? `Click to see ${d.label} distribution` : null;
+    })
+    .on("click", (event, category) => {
+      if (isBreakdown) return;
+      const cat = chartData?.categories?.find((c) => c.label === category.label);
+      if (cat?.breakdown?.length) {
+        renderChart(chartData, cat);
+        showDrillDownHeader(cat);
+      }
+    })
+    .on("keydown", (event, category) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        if (event.target.closest(".bar-group--clickable")) {
+          const cat = chartData?.categories?.find((c) => c.label === category.label);
+          if (cat?.breakdown?.length) {
+            renderChart(chartData, cat);
+            showDrillDownHeader(cat);
+          }
+        }
+      }
+    });
 
   groups
     .append("text")
@@ -255,12 +325,19 @@ function renderChart(data) {
 
   totalComments.textContent = formatNumber(data.totalComments);
   multipleTargets.textContent = formatNumber(data.commentsWithMultipleTargets);
-  commentTotal.textContent = `${formatNumber(data.totalComments)} rows processed`;
-  chartNote.textContent =
-    `One comment can contribute to more than one bar because the dataset allows multiple target types per comment. This SVG chart is drawn with D3, and each stone image represents ${formatNumber(STONE_UNIT)} comments.`;
+  commentTotal.textContent = isBreakdown
+    ? `${drillDown.label} breakdown`
+    : `${formatNumber(data.totalComments)} rows processed`;
+  chartNote.textContent = isBreakdown
+    ? `Distribution within the ${drillDown.label} category. Each stone represents ${formatNumber(STONE_UNIT)} comments.`
+    : `One comment can contribute to more than one bar because the dataset allows multiple target types per comment. This SVG chart is drawn with D3, and each stone image represents ${formatNumber(STONE_UNIT)} comments.`;
 }
 
 async function initChart() {
+  if (backButton) {
+    backButton.addEventListener("click", handleBackClick);
+  }
+
   try {
     if (window.HATEXPLAIN_COUNTS) {
       renderChart(window.HATEXPLAIN_COUNTS);
