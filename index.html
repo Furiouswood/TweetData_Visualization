@@ -22,7 +22,7 @@
             This draft bar chart counts comments in
             <span>race</span>, <span>religion</span>, <span>gender</span>,
             <span>sexual orientation</span>, and <span>miscellaneous</span>
-            using the cleaned dataset.
+            using the cleaned dataset. Click a category bar to see its distribution breakdown.
           </p>
         </div>
 
@@ -33,6 +33,13 @@
               <h2 id="bars-heading">Category counts from <code>clean_hateXplain.csv</code></h2>
             </div>
             <div class="meta-pill" id="comment-total">Loading dataset...</div>
+          </div>
+
+          <div class="drill-down-bar" id="drill-down-header" aria-hidden="true">
+            <button type="button" class="back-button" id="back-button" aria-label="Back to overview">
+              ← Back to overview
+            </button>
+            <h3 class="drill-down-title" id="drill-down-title"></h3>
           </div>
 
           <div class="chart-grid" id="chart-grid" aria-live="polite"></div>
