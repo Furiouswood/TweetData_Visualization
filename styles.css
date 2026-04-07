@@ -468,6 +468,116 @@ h2 {
   line-height: 1.65;
 }
 
+.poem-section {
+  position: relative;
+  z-index: 2;
+  margin-top: 1.75rem;
+  padding: 1rem 1.5rem 1.25rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.poem-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.poem-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.poem-title-group .eyebrow {
+  margin: 0;
+}
+
+.poem-title {
+  margin: 0;
+  font-family: "Instrument Serif", serif;
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.poem-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.poem-dots {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.poem-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent-soft);
+  background: transparent;
+  padding: 0;
+  cursor: default;
+  transition: background 0.25s, border-color 0.25s, transform 0.2s;
+}
+
+.poem-dot--unlocked {
+  border-color: var(--accent);
+  cursor: pointer;
+}
+
+.poem-dot--unlocked:hover {
+  background: var(--accent-soft);
+  transform: scale(1.2);
+}
+
+.poem-dot--active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.poem-hint {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+  transition: opacity 0.4s ease;
+  white-space: nowrap;
+}
+
+.poem-hint--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.poem-stage {
+  min-height: 7rem;
+}
+
+.poem-stanza-text {
+  margin: 0;
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.85;
+  color: var(--ink);
+  transition: opacity 0.35s ease;
+}
+
+.poem-stanza-text--fade {
+  opacity: 0;
+}
+
 .content-warning {
   max-width: 64ch;
   margin: 1.1rem 0 0;
@@ -533,6 +643,10 @@ code {
 
   .stats-row {
     grid-template-columns: 1fr;
+  }
+
+  .poem-nav {
+    flex-wrap: wrap;
   }
 
   .meta-pill {

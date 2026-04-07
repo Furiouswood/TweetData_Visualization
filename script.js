@@ -23,6 +23,24 @@ const APP_VIEWS = {
   POND: "pond",
 };
 
+const poemStanzaText = document.getElementById("poem-stanza-text");
+const poemDotsEl = document.getElementById("poem-dots");
+const poemHint = document.getElementById("poem-hint");
+
+const POEM_STANZA_LINES = [
+  ["A tweet is a pebble \u2014", "tiny enough to toss,", "light enough to deny.", "But the river remembers every stone,", "and the data shows how the ripples multiply."],
+  ["In the dataset, we call it a label:", "gender, religion, ethnicity, age.", "In real life, it is a person", "refreshing a screen", "like a pulse checking itself."],
+  ["There are the obvious knives,", "and the \u201cjokes\u201d engineered to bruise.", "We clean the text,", "strip the links,", "remove the noise \u2014", "but the meaning stays in the wounds."],
+  ["Because harm is scalable \u2014", "one post becomes a noise,", "then a crowd.", "The spreadsheet calls it \u201cnormal,\u201d", "as if silence isn\u2019t a choice after all."],
+  ["A report button is a pixel,", "a plea,", "a question the chart can\u2019t fully hold:", "Will we call this \u201ccontent,\u201d", "or will we call it harm", "before it settles into stone?"],
+];
+
+const POEM_REVEAL_COUNT = {
+  [APP_VIEWS.OVERVIEW]: 1,
+  [APP_VIEWS.BREAKDOWN]: 3,
+  [APP_VIEWS.POND]: 5,
+};
+
 const numberFormatter = new Intl.NumberFormat("en-US");
 const STONE_UNIT = 1000;
 const STONE_HEIGHT = 58;
@@ -42,6 +60,8 @@ let commentDataPromise = null;
 let commentDataError = null;
 let stoneThrowRunId = 0;
 let announcementFrame = null;
+let poemMaxRevealed = 0;
+let poemCurrentIndex = 0;
 let appState = {
   view: APP_VIEWS.OVERVIEW,
   activeCategory: null,
@@ -66,6 +86,78 @@ function truncateComment(text, maxLength = 100) {
   }
 
   return `${text.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+const SENSITIVE_WORDS_REGEX = new RegExp(
+  "\\b(" +
+    [
+      // Anti-Black slurs
+      "nigger", "niggers", "nigga", "niggas", "negro", "negroes",
+      "coon", "coons", "jigaboo", "jigaboos", "spook", "spooks",
+      "sambo", "sambos", "porch monkey", "porch monkeys",
+      "dindu", "dindus", "darky", "darkie", "darkies",
+      "jungle bunny", "jungle bunnies", "junglebunny",
+      "mud shark", "mud sharks", "mudshark",
+      // Anti-Arab / anti-Muslim / anti-South Asian slurs
+      "raghead", "ragheads", "towelhead", "towelheads",
+      "sandnigger", "sandniggers", "sand nigger", "sand niggers",
+      "camel jockey", "camel jockeys", "goatfucker", "goatfuckers",
+      "muzzie", "muzzies", "muzzy",
+      "paki", "pakis",
+      "curry nigger", "curry niggers",
+      "kuffar",
+      // Anti-Jewish slurs
+      "kike", "kikes", "heeb", "heebs", "yid", "yids", "hymie", "hymies",
+      // Anti-Hispanic slurs
+      "spic", "spics", "spick", "spicks", "wetback", "wetbacks",
+      "beaner", "beaners",
+      // Anti-Asian slurs
+      "chink", "chinks", "gook", "gooks", "zipperhead", "zipperheads",
+      "ching chong", "ching chongs",
+      // Anti-Indigenous slurs
+      "redskin", "redskins", "injun", "injuns", "squaw", "squaws",
+      // Anti-white slurs
+      "cracker", "crackers", "white trash", "trailer trash",
+      // Homophobic / transphobic slurs
+      "faggot", "faggots", "faggotry",
+      "fag", "fags", "dyke", "dykes",
+      "tranny", "trannies", "homo", "homos",
+      "queer", "queers",
+      // Misogynistic slurs
+      "cunt", "cunts", "whore", "whores", "slut", "sluts",
+      "bitch", "bitches", "skank", "skanks",
+      "hooker", "hookers", "pussy",
+      // Ableist slurs
+      "retard", "retards", "retarded",
+      // General profanity
+      "fuck", "fucks", "fucker", "fuckers", "fucking", "fucked",
+      "shit", "shits", "shitty", "shitskin", "shitskins",
+      "asshole", "assholes", "bastard", "bastards",
+      // Sexual / explicit terms
+      "dick", "dicks", "cock", "cocks",
+      "penis", "penises", "vagina", "vaginas",
+      "cum", "cumming", "cumshot",
+      "blowjob", "blowjobs", "blow job", "blow jobs",
+      "handjob", "handjobs", "hand job", "hand jobs",
+      "porn", "porno", "pornography",
+      "rape", "rapes", "raped", "raping", "rapist", "rapists",
+      "molest", "molested", "molesting", "molester",
+      "masturbate", "masturbating", "masturbation",
+    ]
+      .map((word) => word.replace(/\s+/g, "\\s+"))
+      .join("|") +
+    ")\\b",
+  "gi"
+);
+
+function censorWord(word) {
+  return word.length <= 1 ? word : word[0] + "*".repeat(word.length - 1);
+}
+
+function censorComment(text) {
+  return text.replace(SENSITIVE_WORDS_REGEX, (match) =>
+    match.split(/(\s+)/).map((token) => (/\s/.test(token) ? token : censorWord(token))).join("")
+  );
 }
 
 function createSeededRandom(seedText) {
@@ -487,7 +579,7 @@ function renderStaticCommentStream(subcategoryLabel) {
     .slice(0, 8)
     .map((text, index) => ({
       id: `${subcategoryLabel}-static-${index}`,
-      text: truncateComment(text, 86),
+      text: truncateComment(censorComment(text), 86),
     }));
 
   const d3 = window.d3;
@@ -756,7 +848,7 @@ function startCommentStream(subcategoryLabel) {
     .slice(0, MAX_STREAM_COMMENTS)
     .map((text, index) => ({
       id: `${subcategoryLabel}-${index}`,
-      text: truncateComment(text, 92),
+      text: truncateComment(censorComment(text), 92),
     }));
 
   const d3 = window.d3;
@@ -777,6 +869,68 @@ function startCommentStream(subcategoryLabel) {
   });
 }
 
+function renderPoemDots() {
+  if (!poemDotsEl) {
+    return;
+  }
+
+  poemDotsEl.innerHTML = "";
+  POEM_STANZA_LINES.forEach((_, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "poem-dot";
+    btn.setAttribute("aria-label", `Stanza ${index + 1}`);
+
+    if (index < poemMaxRevealed) {
+      btn.classList.add("poem-dot--unlocked");
+      btn.addEventListener("click", () => showPoemStanza(index));
+    }
+    if (index === poemCurrentIndex) {
+      btn.classList.add("poem-dot--active");
+    }
+
+    poemDotsEl.appendChild(btn);
+  });
+}
+
+function showPoemStanza(index) {
+  if (!poemStanzaText) {
+    return;
+  }
+
+  poemCurrentIndex = index;
+  poemStanzaText.classList.add("poem-stanza-text--fade");
+
+  window.setTimeout(() => {
+    poemStanzaText.innerHTML = POEM_STANZA_LINES[index].join("<br>");
+    poemStanzaText.classList.remove("poem-stanza-text--fade");
+    renderPoemDots();
+  }, 360);
+}
+
+function updatePoem(view) {
+  const targetCount = POEM_REVEAL_COUNT[view] ?? 1;
+  const newMax = Math.max(poemMaxRevealed, targetCount);
+
+  if (newMax <= poemMaxRevealed) {
+    return;
+  }
+
+  const firstNewIndex = poemMaxRevealed;
+  poemMaxRevealed = newMax;
+
+  renderPoemDots();
+
+  // Cross-fade to the first newly revealed stanza
+  showPoemStanza(firstNewIndex);
+
+  if (poemHint) {
+    const allRevealed = poemMaxRevealed >= POEM_STANZA_LINES.length;
+    poemHint.textContent = allRevealed ? "full poem revealed" : "keep exploring to reveal more";
+    poemHint.classList.toggle("poem-hint--hidden", allRevealed);
+  }
+}
+
 function openOverview() {
   appState = {
     view: APP_VIEWS.OVERVIEW,
@@ -793,6 +947,7 @@ function openOverview() {
   stopCommentStream();
   stopStoneThrow();
   setContentWarningVisible(false);
+  updatePoem(APP_VIEWS.OVERVIEW);
   announceUiState("Overview chart loaded.");
   renderChart();
 }
@@ -813,6 +968,7 @@ function openBreakdown(category) {
   stopCommentStream();
   stopStoneThrow();
   setContentWarningVisible(false);
+  updatePoem(APP_VIEWS.BREAKDOWN);
   announceUiState(`${category.label} breakdown opened.`);
   renderChart(category);
 }
@@ -909,6 +1065,7 @@ async function openPond(subcategory, sourceGroup = null) {
     `${subcategory.label} — ${formatNumber(subcategory.count)} comments`,
     `Back to ${appState.activeCategory.label} breakdown`
   );
+  updatePoem(APP_VIEWS.POND);
   updateMetaText();
   announceUiState(`Launching ${subcategory.label} pond view.`);
 
@@ -961,6 +1118,12 @@ function ensureCommentData() {
 }
 
 async function initChart() {
+  // Seed the first stanza immediately so the poem stage is never blank
+  if (poemStanzaText) {
+    poemStanzaText.innerHTML = POEM_STANZA_LINES[0].join("<br>");
+  }
+  renderPoemDots();
+
   if (backButton) {
     backButton.addEventListener("click", handleBackClick);
   }
