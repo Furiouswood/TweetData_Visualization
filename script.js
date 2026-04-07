@@ -1,14 +1,27 @@
 const chartGrid = document.getElementById("chart-grid");
+const chartPanel = document.querySelector(".chart-panel");
+const stoneFlightLayer = document.getElementById("stone-flight-layer");
+const commentStream = document.getElementById("comment-stream");
+const pondContainer = document.getElementById("pond-container");
+const pondSplashLayer = document.getElementById("pond-splash-layer");
+const contentWarning = document.getElementById("content-warning");
+const uiAnnouncer = document.getElementById("ui-announcer");
 const totalComments = document.getElementById("total-comments");
 const multipleTargets = document.getElementById("multiple-targets");
 const commentTotal = document.getElementById("comment-total");
 const chartNote = document.getElementById("chart-note");
 const drillDownHeader = document.getElementById("drill-down-header");
+const drillDownTitle = document.getElementById("drill-down-title");
 const backButton = document.getElementById("back-button");
 const STONE_IMAGE_PATH = "./stone.png";
+const COMMENT_DATA_PATH = "./data/category_comments.json";
+const COUNT_DATA_PATH = "./data/category_counts.json";
 
-let chartData = null;
-let drillDownCategory = null;
+const APP_VIEWS = {
+  OVERVIEW: "overview",
+  BREAKDOWN: "breakdown",
+  POND: "pond",
+};
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 const STONE_UNIT = 1000;
@@ -18,6 +31,26 @@ const CHART_WIDTH = 1080;
 const CHART_HEIGHT = 760;
 const MARGIN = { top: 52, right: 36, bottom: 126, left: 84 };
 const STONE_WIDTHS = [0.9, 0.8, 0.88, 0.78, 0.92, 0.84, 0.86, 0.8];
+const MAX_STREAM_COMMENTS = 14;
+const STONE_THROW_STEP_DELAY = 70;
+const STONE_THROW_DURATION = 900;
+const SPLASH_SETTLE_DELAY = 480;
+
+let chartData = null;
+let categoryComments = window.HATEXPLAIN_CATEGORY_COMMENTS || null;
+let commentDataPromise = null;
+let commentDataError = null;
+let stoneThrowRunId = 0;
+let announcementFrame = null;
+let appState = {
+  view: APP_VIEWS.OVERVIEW,
+  activeCategory: null,
+  activeSubcategory: null,
+};
+
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+}
 
 function formatNumber(value) {
   return numberFormatter.format(value);
@@ -27,30 +60,143 @@ function splitLabel(label) {
   return label.split(" ");
 }
 
+function truncateComment(text, maxLength = 100) {
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function createSeededRandom(seedText) {
+  let seed = 0;
+
+  for (let index = 0; index < seedText.length; index += 1) {
+    seed = (seed * 31 + seedText.charCodeAt(index)) >>> 0;
+  }
+
+  return () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 2 ** 32;
+  };
+}
+
+function fetchJson(path) {
+  return fetch(path).then((response) => {
+    if (!response.ok) {
+      throw new Error(`Could not load ${path}.`);
+    }
+
+    return response.json();
+  });
+}
+
 function renderError(message) {
   chartGrid.innerHTML = `<p class="is-error">${message}</p>`;
   commentTotal.textContent = "Data unavailable";
   hideDrillDownHeader();
+  setPondState({
+    title: "Data unavailable",
+    status: "The chart data could not be loaded.",
+    isActive: false,
+    isError: true,
+  });
+  stopCommentStream();
+  stopStoneThrow();
+  setContentWarningVisible(false);
+  announceUiState("Chart data unavailable.");
 }
 
-function showDrillDownHeader(category) {
-  if (!drillDownHeader) return;
+function showDrillDownHeader(title, backLabel) {
+  if (!drillDownHeader || !drillDownTitle || !backButton) {
+    return;
+  }
+
   drillDownHeader.setAttribute("aria-hidden", "false");
-  const titleEl = document.getElementById("drill-down-title");
-  if (titleEl) titleEl.textContent = `${category.label} distribution`;
+  drillDownTitle.textContent = title;
+  backButton.textContent = `← ${backLabel}`;
+  backButton.setAttribute("aria-label", backLabel);
   drillDownHeader.classList.add("drill-down-bar--visible");
 }
 
 function hideDrillDownHeader() {
-  if (!drillDownHeader) return;
+  if (!drillDownHeader) {
+    return;
+  }
+
   drillDownHeader.setAttribute("aria-hidden", "true");
   drillDownHeader.classList.remove("drill-down-bar--visible");
 }
 
-function handleBackClick() {
-  if (chartData) {
-    renderChart(chartData);
-    hideDrillDownHeader();
+function setPondState({ title, status, isActive, isError = false }) {
+  if (!pondContainer) {
+    return;
+  }
+
+  pondContainer.classList.toggle("pond-container--visible", isActive);
+  pondContainer.classList.remove("pond-container--landing");
+  pondContainer.setAttribute("aria-hidden", isActive ? "false" : "true");
+  pondContainer.setAttribute("aria-label", title || status || "Pond view");
+  pondContainer.dataset.state = isError ? "error" : "default";
+}
+
+function setContentWarningVisible(isVisible) {
+  if (!contentWarning) {
+    return;
+  }
+
+  contentWarning.hidden = !isVisible;
+}
+
+function announceUiState(message) {
+  if (!uiAnnouncer) {
+    return;
+  }
+
+  if (announcementFrame) {
+    window.clearTimeout(announcementFrame);
+  }
+
+  uiAnnouncer.textContent = "";
+  announcementFrame = window.setTimeout(() => {
+    uiAnnouncer.textContent = message;
+  }, 30);
+}
+
+function getCategoryByLabel(label) {
+  return chartData?.categories?.find((category) => category.label === label) || null;
+}
+
+function updateMetaText() {
+  if (!chartData) {
+    return;
+  }
+
+  totalComments.textContent = formatNumber(chartData.totalComments);
+  multipleTargets.textContent = formatNumber(chartData.commentsWithMultipleTargets);
+
+  if (appState.view === APP_VIEWS.OVERVIEW) {
+    commentTotal.textContent = `${formatNumber(chartData.totalComments)} rows processed`;
+    chartNote.textContent =
+      `One comment can contribute to more than one bar because the dataset allows multiple target types per comment. ` +
+      `This SVG chart is drawn with D3, and each stone image represents ${formatNumber(STONE_UNIT)} comments.`;
+    return;
+  }
+
+  if (appState.view === APP_VIEWS.BREAKDOWN && appState.activeCategory) {
+    commentTotal.textContent = `${appState.activeCategory.label} breakdown`;
+    chartNote.textContent =
+      `Distribution within the ${appState.activeCategory.label} category. ` +
+      `Each stone represents ${formatNumber(STONE_UNIT)} comments. Click a subcategory to activate the pond and D3 comment stream.`;
+    return;
+  }
+
+  if (appState.view === APP_VIEWS.POND && appState.activeSubcategory) {
+    const sampleCount = categoryComments?.[appState.activeSubcategory.label]?.length || 0;
+    commentTotal.textContent =
+      sampleCount > 0 ? `${formatNumber(sampleCount)} sampled comments` : "Pond active";
+    chartNote.textContent =
+      `The chart stays visible while D3 animates sampled ${appState.activeSubcategory.label} comments across the panel from left to right.`;
   }
 }
 
@@ -72,22 +218,19 @@ function addWrappedLabel(selection, label, x, y) {
   });
 }
 
-function renderChart(data, drillDown = null) {
+function renderChart(drillDown = null) {
   if (!window.d3) {
     renderError("D3 did not load. Connect to the internet and reload the page.");
     return;
   }
 
-  chartData = data;
-  drillDownCategory = drillDown;
-
   const d3 = window.d3;
-  const isBreakdown = drillDown && drillDown.breakdown && drillDown.breakdown.length > 0;
+  const isBreakdown = Boolean(drillDown && drillDown.breakdown && drillDown.breakdown.length > 0);
   const categories = isBreakdown
     ? [...drillDown.breakdown].sort((a, b) => b.count - a.count)
-    : [...data.categories].sort((a, b) => b.count - a.count);
-  const maxCount = d3.max(categories, (category) => category.count);
-  const yMax = Math.ceil(maxCount / STONE_UNIT) * STONE_UNIT;
+    : [...chartData.categories].sort((a, b) => b.count - a.count);
+  const maxCount = d3.max(categories, (category) => category.count) || STONE_UNIT;
+  const yMax = Math.max(STONE_UNIT, Math.ceil(maxCount / STONE_UNIT) * STONE_UNIT);
   const chartLeft = MARGIN.left;
   const chartRight = CHART_WIDTH - MARGIN.right;
   const chartTop = MARGIN.top + 88;
@@ -116,7 +259,7 @@ function renderChart(data, drillDown = null) {
     .attr(
       "aria-label",
       isBreakdown
-        ? `Distribution breakdown for ${drillDown.label}`
+        ? `Distribution breakdown for ${drillDown.label}. Click a subcategory bar to activate the pond and streaming comments.`
         : "Vertical D3 bar chart of HateXplain category counts, using stacked stone images where each stone represents one thousand comments. Click a category to see its distribution."
     );
 
@@ -184,44 +327,44 @@ function renderChart(data, drillDown = null) {
 
   const groups = root
     .selectAll(".bar-group")
-    .data(categories, (d) => d.label)
+    .data(categories, (category) => category.label)
     .enter()
     .append("g")
-    .attr("class", (d) => {
-      const hasBreakdown = !isBreakdown && chartData?.categories?.find((c) => c.label === d.label)?.breakdown?.length;
-      return `bar-group${hasBreakdown ? " bar-group--clickable" : ""}`;
-    })
+    .attr("class", "bar-group bar-group--clickable")
     .attr("transform", (category) => `translate(${x(category.label)},0)`)
-    .attr("role", (d) => {
-      const hasBreakdown = !isBreakdown && chartData?.categories?.find((c) => c.label === d.label)?.breakdown?.length;
-      return hasBreakdown ? "button" : null;
-    })
-    .attr("tabindex", (d) => {
-      const hasBreakdown = !isBreakdown && chartData?.categories?.find((c) => c.label === d.label)?.breakdown?.length;
-      return hasBreakdown ? 0 : null;
-    })
-    .attr("aria-label", (d) => {
-      const hasBreakdown = !isBreakdown && chartData?.categories?.find((c) => c.label === d.label)?.breakdown?.length;
-      return hasBreakdown ? `Click to see ${d.label} distribution` : null;
-    })
+    .attr("role", "button")
+    .attr("tabindex", 0)
+    .attr("aria-label", (category) =>
+      isBreakdown
+        ? `Activate the pond for ${category.label} comments`
+        : `Click to see ${category.label} distribution`
+    )
     .on("click", (event, category) => {
-      if (isBreakdown) return;
-      const cat = chartData?.categories?.find((c) => c.label === category.label);
-      if (cat?.breakdown?.length) {
-        renderChart(chartData, cat);
-        showDrillDownHeader(cat);
+      if (isBreakdown) {
+        openPond(category, event.currentTarget);
+        return;
+      }
+
+      const nextCategory = getCategoryByLabel(category.label);
+      if (nextCategory?.breakdown?.length) {
+        openBreakdown(nextCategory);
       }
     })
     .on("keydown", (event, category) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        if (event.target.closest(".bar-group--clickable")) {
-          const cat = chartData?.categories?.find((c) => c.label === category.label);
-          if (cat?.breakdown?.length) {
-            renderChart(chartData, cat);
-            showDrillDownHeader(cat);
-          }
-        }
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (isBreakdown) {
+        openPond(category, event.currentTarget);
+        return;
+      }
+
+      const nextCategory = getCategoryByLabel(category.label);
+      if (nextCategory?.breakdown?.length) {
+        openBreakdown(nextCategory);
       }
     });
 
@@ -264,17 +407,15 @@ function renderChart(data, drillDown = null) {
       const stoneWidth = laneWidth * STONE_WIDTHS[index % STONE_WIDTHS.length];
       const stoneX = centerX - stoneWidth / 2;
       const stoneY = chartBottom - STONE_HEIGHT - index * (STONE_HEIGHT + STONE_GAP) - 8;
-      const clipId = `stone-clip-${groupIndex}-${index}`;
+      const clipId = `stone-clip-${groupIndex}-${index}-${category.label.replace(/\s+/g, "-")}`;
 
       defs
         .append("clipPath")
         .attr("id", clipId)
         .attr("clipPathUnits", "userSpaceOnUse")
         .append("rect")
-        // The clip path shares the bar group's coordinate space, so using the
-        // band offset here shifts it away from the image and clips the stone out.
         .attr("x", stoneX)
-        .attr("y", stoneY + (STONE_HEIGHT * (1 - fillRatio)))
+        .attr("y", stoneY + STONE_HEIGHT * (1 - fillRatio))
         .attr("width", stoneWidth)
         .attr("height", STONE_HEIGHT * fillRatio);
 
@@ -320,17 +461,503 @@ function renderChart(data, drillDown = null) {
   });
 
   groups.each(function addLabels(category) {
-    addWrappedLabel(d3.select(this), category.label, x.bandwidth() / 2, chartBottom + 34);
+    addWrappedLabel(window.d3.select(this), category.label, x.bandwidth() / 2, chartBottom + 34);
   });
 
-  totalComments.textContent = formatNumber(data.totalComments);
-  multipleTargets.textContent = formatNumber(data.commentsWithMultipleTargets);
-  commentTotal.textContent = isBreakdown
-    ? `${drillDown.label} breakdown`
-    : `${formatNumber(data.totalComments)} rows processed`;
-  chartNote.textContent = isBreakdown
-    ? `Distribution within the ${drillDown.label} category. Each stone represents ${formatNumber(STONE_UNIT)} comments.`
-    : `One comment can contribute to more than one bar because the dataset allows multiple target types per comment. This SVG chart is drawn with D3, and each stone image represents ${formatNumber(STONE_UNIT)} comments.`;
+  updateMetaText();
+}
+
+function stopCommentStream() {
+  if (!window.d3 || !commentStream) {
+    return;
+  }
+
+  const d3 = window.d3;
+  d3.select(commentStream).selectAll(".stream-comment").interrupt().remove();
+}
+
+function renderStaticCommentStream(subcategoryLabel) {
+  if (!window.d3 || !commentStream || !categoryComments?.[subcategoryLabel]?.length) {
+    return;
+  }
+
+  stopCommentStream();
+
+  const comments = categoryComments[subcategoryLabel]
+    .slice(0, 8)
+    .map((text, index) => ({
+      id: `${subcategoryLabel}-static-${index}`,
+      text: truncateComment(text, 86),
+    }));
+
+  const d3 = window.d3;
+  const bounds = commentStream.getBoundingClientRect();
+  const width = Math.max(bounds.width, 900);
+  const height = Math.max(bounds.height, 760);
+  const random = createSeededRandom(`${subcategoryLabel}-static-layout`);
+
+  const selection = d3
+    .select(commentStream)
+    .selectAll(".stream-comment")
+    .data(comments, (datum) => datum.id)
+    .join("div")
+    .attr("class", "stream-comment stream-comment--static")
+    .text((datum) => datum.text)
+    .style("opacity", 0.88);
+
+  selection.each(function eachComment(_, index) {
+    const left = 28 + (index / Math.max(1, comments.length - 1)) * (width - 330);
+    const top = 36 + (index % 4) * 104 + random() * 18;
+    d3.select(this)
+      .style("left", `${left}px`)
+      .style("top", `${Math.min(top, height - 90)}px`);
+  });
+}
+
+function stopStoneThrow() {
+  stoneThrowRunId += 1;
+
+  if (!window.d3 || !stoneFlightLayer) {
+    return;
+  }
+
+  window.d3.select(stoneFlightLayer).selectAll(".flying-stone").interrupt().remove();
+  if (pondSplashLayer) {
+    window.d3.select(pondSplashLayer).selectAll("*").interrupt().remove();
+  }
+  pondContainer?.classList.remove("pond-container--landing");
+}
+
+function pulsePondLanding(runId) {
+  if (!pondContainer) {
+    return;
+  }
+
+  pondContainer.classList.add("pond-container--landing");
+  window.setTimeout(() => {
+    if (runId === stoneThrowRunId) {
+      pondContainer.classList.remove("pond-container--landing");
+    }
+  }, 420);
+}
+
+function createPondSplash(localX, localY, runId) {
+  if (!window.d3 || !pondSplashLayer || !pondContainer) {
+    return;
+  }
+
+  const d3 = window.d3;
+  const pondRect = pondContainer.getBoundingClientRect();
+  pondSplashLayer.setAttribute("viewBox", `0 0 ${pondRect.width} ${pondRect.height}`);
+
+  const splash = d3
+    .select(pondSplashLayer)
+    .append("g")
+    .attr("transform", `translate(${localX}, ${localY})`)
+    .attr("opacity", 1);
+
+  splash
+    .append("circle")
+    .attr("class", "splash-core")
+    .attr("r", 4)
+    .attr("opacity", 0.82)
+    .transition()
+    .duration(420)
+    .ease(d3.easeCubicOut)
+    .attr("r", 22)
+    .attr("opacity", 0);
+
+  [26, 48, 74, 102].forEach((radius, index) => {
+    splash
+      .append("circle")
+      .attr("class", "splash-ring")
+      .attr("r", 3)
+      .attr("opacity", 0.88 - index * 0.12)
+      .transition()
+      .delay(index * 70)
+      .duration(760)
+      .ease(d3.easeCubicOut)
+      .attr("r", radius)
+      .attr("opacity", 0);
+  });
+
+  [-34, -20, -6, 10, 26, 40].forEach((offsetX, index) => {
+    const droplet = splash
+      .append("ellipse")
+      .attr("class", "splash-droplet")
+      .attr("cx", offsetX)
+      .attr("cy", -6)
+      .attr("rx", Math.max(2.4, 4.8 - index * 0.32))
+      .attr("ry", Math.max(4.2, 8.8 - index * 0.48))
+      .attr("opacity", 0.98);
+
+    droplet
+      .transition()
+      .delay(55 + index * 28)
+      .duration(560)
+      .ease(d3.easeQuadOut)
+      .attrTween("transform", () => {
+        const driftX = offsetX * 0.75;
+        const lift = 54 + Math.abs(offsetX) * 0.55 + index * 4;
+        return (t) => {
+          const travelX = driftX * t;
+          const travelY = -4 * lift * t * (1 - t) - 22 * t;
+          return `translate(${travelX}, ${travelY})`;
+        };
+      })
+      .attr("opacity", 0.92)
+      .transition()
+      .duration(220)
+      .attr("opacity", 0);
+  });
+
+  window.setTimeout(() => {
+    if (runId === stoneThrowRunId) {
+      splash.remove();
+    } else {
+      splash.remove();
+    }
+  }, 1180);
+}
+
+function throwStonesToPond(sourceGroup) {
+  if (prefersReducedMotion()) {
+    return Promise.resolve();
+  }
+
+  if (!window.d3 || !sourceGroup || !stoneFlightLayer || !chartPanel || !pondContainer) {
+    return Promise.resolve();
+  }
+
+  stopStoneThrow();
+
+  const runId = stoneThrowRunId;
+  const d3 = window.d3;
+  const panelRect = chartPanel.getBoundingClientRect();
+  const pondRect = pondContainer.getBoundingClientRect();
+  const targetBaseX = pondRect.left - panelRect.left + pondRect.width * 0.52;
+  const targetBaseY = pondRect.top - panelRect.top + pondRect.height * 0.6;
+  const pondLocalBaseX = pondRect.width * 0.52;
+  const pondLocalBaseY = pondRect.height * 0.6;
+  if (pondSplashLayer) {
+    pondSplashLayer.setAttribute("viewBox", `0 0 ${pondRect.width} ${pondRect.height}`);
+  }
+  const stoneImages = Array.from(sourceGroup.querySelectorAll(".stone-image"));
+
+  if (!stoneImages.length) {
+    return Promise.resolve();
+  }
+
+  stoneImages.forEach((stoneNode, index) => {
+    const rect = stoneNode.getBoundingClientRect();
+    const startX = rect.left - panelRect.left;
+    const startY = rect.top - panelRect.top;
+    const startWidth = rect.width;
+    const startHeight = rect.height;
+    const spread = (index - (stoneImages.length - 1) / 2) * 12;
+    const targetX = targetBaseX + spread - startWidth * 0.36;
+    const targetY = targetBaseY + Math.abs(spread) * 0.18 - startHeight * 0.3;
+    const splashLocalX = pondLocalBaseX + spread * 0.9;
+    const splashLocalY = pondLocalBaseY + Math.abs(spread) * 0.18;
+    const peak = Math.max(90, Math.abs(targetX - startX) * 0.12 + 70 + index * 10);
+
+    const clone = d3
+      .select(stoneFlightLayer)
+      .append("img")
+      .attr("class", "flying-stone")
+      .attr("src", STONE_IMAGE_PATH)
+      .style("width", `${startWidth}px`)
+      .style("height", `${startHeight}px`)
+      .style("left", `${startX}px`)
+      .style("top", `${startY}px`)
+      .style("opacity", 0.96)
+      .style("transform", "translate3d(0px, 0px, 0) scale(1)");
+
+    clone
+      .transition()
+      .delay(index * STONE_THROW_STEP_DELAY)
+      .duration(STONE_THROW_DURATION)
+      .ease(d3.easeCubicInOut)
+      .styleTween("transform", () => {
+        return (t) => {
+          const currentX = (targetX - startX) * t;
+          const currentY = (targetY - startY) * t - 4 * peak * t * (1 - t);
+          const scale = 1 - t * 0.34;
+          const rotate = -9 + t * 18;
+          return `translate3d(${currentX}px, ${currentY}px, 0) scale(${scale}) rotate(${rotate}deg)`;
+        };
+      })
+      .styleTween("opacity", () => {
+        return (t) => `${0.96 - t * 0.3}`;
+      })
+      .on("end", function onEnd() {
+        d3.select(this).remove();
+        if (runId === stoneThrowRunId) {
+          pulsePondLanding(runId);
+          createPondSplash(splashLocalX, splashLocalY, runId);
+        }
+      });
+  });
+
+  const totalDuration =
+    STONE_THROW_DURATION +
+    (stoneImages.length - 1) * STONE_THROW_STEP_DELAY +
+    SPLASH_SETTLE_DELAY;
+
+  return new Promise((resolve) => {
+    window.setTimeout(() => {
+      if (runId === stoneThrowRunId) {
+        resolve();
+      } else {
+        resolve();
+      }
+    }, totalDuration);
+  });
+}
+
+function animateStreamComment(selection, width, travelHeight, random) {
+  const startX = -340 - random() * 180;
+  const endX = width + 180 + random() * 160;
+  const nextY = 20 + random() * Math.max(40, travelHeight - 56);
+  const opacity = 0.6 + random() * 0.22;
+  const duration = 12000 + random() * 7000;
+
+  selection
+    .style("top", `${nextY}px`)
+    .style("left", `${startX}px`)
+    .style("opacity", 0)
+    .transition()
+    .duration(650)
+    .style("opacity", opacity)
+    .transition()
+    .duration(duration)
+    .ease(window.d3.easeLinear)
+    .style("left", `${endX}px`)
+    .transition()
+    .duration(550)
+    .style("opacity", 0)
+    .on("end", function onEnd() {
+      animateStreamComment(window.d3.select(this), width, travelHeight, random);
+    });
+}
+
+function startCommentStream(subcategoryLabel) {
+  if (!window.d3 || !commentStream) {
+    return;
+  }
+
+  stopCommentStream();
+
+  if (!categoryComments || !categoryComments[subcategoryLabel]?.length) {
+    return;
+  }
+
+  const comments = categoryComments[subcategoryLabel]
+    .slice(0, MAX_STREAM_COMMENTS)
+    .map((text, index) => ({
+      id: `${subcategoryLabel}-${index}`,
+      text: truncateComment(text, 92),
+    }));
+
+  const d3 = window.d3;
+  const bounds = commentStream.getBoundingClientRect();
+  const width = Math.max(bounds.width, 900);
+  const height = Math.max(bounds.height, 900);
+  const selection = d3
+    .select(commentStream)
+    .selectAll(".stream-comment")
+    .data(comments, (datum) => datum.id)
+    .join("div")
+    .attr("class", "stream-comment")
+    .text((datum) => datum.text);
+
+  selection.each(function eachComment(_, index) {
+    const seeded = createSeededRandom(`${subcategoryLabel}-${index}`);
+    animateStreamComment(d3.select(this), width, height, seeded);
+  });
+}
+
+function openOverview() {
+  appState = {
+    view: APP_VIEWS.OVERVIEW,
+    activeCategory: null,
+    activeSubcategory: null,
+  };
+
+  hideDrillDownHeader();
+  setPondState({
+    title: "Choose a subcategory",
+    status: "The pond stays beside the title while the chart remains visible below.",
+    isActive: false,
+  });
+  stopCommentStream();
+  stopStoneThrow();
+  setContentWarningVisible(false);
+  announceUiState("Overview chart loaded.");
+  renderChart();
+}
+
+function openBreakdown(category) {
+  appState = {
+    view: APP_VIEWS.BREAKDOWN,
+    activeCategory: category,
+    activeSubcategory: null,
+  };
+
+  showDrillDownHeader(`${category.label} distribution`, "Back to overview");
+  setPondState({
+    title: category.label,
+    status: "Pick one breakdown bar to send sampled comments across the page.",
+    isActive: false,
+  });
+  stopCommentStream();
+  stopStoneThrow();
+  setContentWarningVisible(false);
+  announceUiState(`${category.label} breakdown opened.`);
+  renderChart(category);
+}
+
+function renderPondFeedback(subcategory) {
+  if (commentDataError) {
+    setPondState({
+      title: subcategory.label,
+      status: "Sampled comments could not be loaded, but the chart remains available.",
+      isActive: true,
+      isError: true,
+    });
+    stopCommentStream();
+    stopStoneThrow();
+    setContentWarningVisible(false);
+    updateMetaText();
+    announceUiState(`Could not load sampled comments for ${subcategory.label}.`);
+    return;
+  }
+
+  if (!categoryComments) {
+    setPondState({
+      title: subcategory.label,
+      status: "Loading sampled comments for the page-wide stream...",
+      isActive: true,
+    });
+    setContentWarningVisible(false);
+    announceUiState(`Loading sampled comments for ${subcategory.label}.`);
+    ensureCommentData()
+      .then(() => {
+        if (appState.view === APP_VIEWS.POND && appState.activeSubcategory?.label === subcategory.label) {
+          renderPondFeedback(subcategory);
+        }
+      })
+      .catch(() => {
+        if (appState.view === APP_VIEWS.POND && appState.activeSubcategory?.label === subcategory.label) {
+          renderPondFeedback(subcategory);
+        }
+    });
+    return;
+  }
+
+  const sampleCount = categoryComments[subcategory.label]?.length || 0;
+
+  if (!sampleCount) {
+    setPondState({
+      title: subcategory.label,
+      status: "No sampled comments were available for this subcategory yet.",
+      isActive: true,
+    });
+    stopCommentStream();
+    stopStoneThrow();
+    setContentWarningVisible(false);
+    updateMetaText();
+    announceUiState(`No sampled comments were available for ${subcategory.label}.`);
+    return;
+  }
+
+  setPondState({
+    title: `${subcategory.label} stream`,
+    status: prefersReducedMotion()
+      ? `${formatNumber(sampleCount)} sampled comments are shown without motion.`
+      : `${formatNumber(sampleCount)} sampled comments are drifting across the panel from left to right with D3 transitions.`,
+    isActive: true,
+  });
+  setContentWarningVisible(true);
+  if (prefersReducedMotion()) {
+    renderStaticCommentStream(subcategory.label);
+  } else {
+    startCommentStream(subcategory.label);
+  }
+  updateMetaText();
+  announceUiState(
+    `${subcategory.label} pond active. ${formatNumber(sampleCount)} sampled comments ${
+      prefersReducedMotion() ? "shown in a static layout." : "streaming across the page."
+    }`
+  );
+}
+
+async function openPond(subcategory, sourceGroup = null) {
+  if (!appState.activeCategory) {
+    return;
+  }
+
+  stopCommentStream();
+
+  appState = {
+    ...appState,
+    view: APP_VIEWS.POND,
+    activeSubcategory: subcategory,
+  };
+
+  showDrillDownHeader(
+    `${subcategory.label} — ${formatNumber(subcategory.count)} comments`,
+    `Back to ${appState.activeCategory.label} breakdown`
+  );
+  updateMetaText();
+  announceUiState(`Launching ${subcategory.label} pond view.`);
+
+  await throwStonesToPond(sourceGroup);
+
+  if (appState.activeSubcategory?.label !== subcategory.label || appState.view !== APP_VIEWS.POND) {
+    return;
+  }
+
+  renderPondFeedback(subcategory);
+}
+
+function handleBackClick() {
+  if (!chartData) {
+    return;
+  }
+
+  if (appState.view === APP_VIEWS.POND && appState.activeCategory) {
+    openBreakdown(appState.activeCategory);
+    return;
+  }
+
+  if (appState.view === APP_VIEWS.BREAKDOWN) {
+    openOverview();
+  }
+}
+
+function ensureCommentData() {
+  if (categoryComments) {
+    return Promise.resolve(categoryComments);
+  }
+
+  if (commentDataError) {
+    return Promise.reject(commentDataError);
+  }
+
+  if (!commentDataPromise) {
+    commentDataPromise = fetchJson(COMMENT_DATA_PATH)
+      .then((data) => {
+        categoryComments = data;
+        return data;
+      })
+      .catch((error) => {
+        commentDataError = error;
+        throw error;
+      });
+  }
+
+  return commentDataPromise;
 }
 
 async function initChart() {
@@ -338,19 +965,22 @@ async function initChart() {
     backButton.addEventListener("click", handleBackClick);
   }
 
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      handleBackClick();
+    }
+  });
+
   try {
-    if (window.HATEXPLAIN_COUNTS) {
-      renderChart(window.HATEXPLAIN_COUNTS);
-      return;
-    }
+    chartData = window.HATEXPLAIN_COUNTS || (await fetchJson(COUNT_DATA_PATH));
+    openOverview();
 
-    const response = await fetch("./data/category_counts.json");
-    if (!response.ok) {
-      throw new Error("The chart data file could not be loaded.");
-    }
-
-    const data = await response.json();
-    renderChart(data);
+    ensureCommentData().catch((error) => {
+      console.error(error);
+      if (appState.view === APP_VIEWS.POND && appState.activeSubcategory) {
+        renderPondFeedback(appState.activeSubcategory);
+      }
+    });
   } catch (error) {
     renderError(
       "Run `python3 scripts/preprocess_hatexplain.py` to generate the chart data files, then reload the page."

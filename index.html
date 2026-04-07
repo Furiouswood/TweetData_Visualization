@@ -15,16 +15,31 @@
   <body>
     <main class="page-shell">
       <section class="chart-panel" aria-labelledby="chart-title">
-        <div class="panel-intro">
-          <p class="eyebrow">Clean HateXplain Overview</p>
-          <h1 id="chart-title">How many comments target each hate category?</h1>
-          <p class="lede">
-            This draft bar chart counts comments in
-            <span>race</span>, <span>religion</span>, <span>gender</span>,
-            <span>sexual orientation</span>, and <span>miscellaneous</span>
-            using the cleaned dataset. Click a category bar to see its distribution breakdown.
-          </p>
+        <div class="sr-only" id="ui-announcer" aria-live="polite" aria-atomic="true"></div>
+        <div class="stone-flight-layer" id="stone-flight-layer" aria-hidden="true"></div>
+        <div class="comment-stream" id="comment-stream" aria-hidden="true"></div>
+
+        <div class="intro-layout">
+          <div class="panel-intro">
+            <p class="eyebrow">Clean HateXplain Overview</p>
+            <h1 id="chart-title">How many comments target each hate category?</h1>
+            <p class="lede">
+              This draft bar chart counts comments in
+              <span>race</span>, <span>religion</span>, <span>gender</span>,
+              <span>sexual orientation</span>, and <span>miscellaneous</span>
+              using the cleaned dataset. Click a category bar to see its distribution breakdown, then click a subcategory to activate the pond and comment stream.
+            </p>
+          </div>
+
+          <aside class="pond-container" id="pond-container" aria-hidden="true" aria-label="Pond view">
+            <img class="pond-image" src="./pond3.png" alt="" />
+            <svg class="pond-splash-layer" id="pond-splash-layer" aria-hidden="true"></svg>
+          </aside>
         </div>
+
+        <p class="content-warning" id="content-warning" hidden>
+          Content note: activating the pond reveals sampled hateful language from the dataset for analysis and critique.
+        </p>
 
         <section class="chart-stage" aria-labelledby="bars-heading">
           <div class="chart-header">
@@ -41,8 +56,9 @@
             </button>
             <h3 class="drill-down-title" id="drill-down-title"></h3>
           </div>
-
-          <div class="chart-grid" id="chart-grid" aria-live="polite"></div>
+          <div class="chart-view-shell">
+            <div class="chart-grid" id="chart-grid" aria-live="polite"></div>
+          </div>
         </section>
 
         <section class="stats-row" aria-label="Dataset summary">
@@ -68,6 +84,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
     <script src="./data/category_counts.js"></script>
+    <script src="./data/category_comments.js"></script>
     <script src="./script.js" defer></script>
   </body>
 </html>
