@@ -19,6 +19,16 @@
         <div class="stone-flight-layer" id="stone-flight-layer" aria-hidden="true"></div>
         <div class="comment-stream" id="comment-stream" aria-hidden="true"></div>
 
+        <div class="landing-sides" aria-hidden="true">
+          <img
+            class="landing-side landing-side--left"
+            src="./pngtree-cyber-bullying-and-online-crime-concept-png-image_6581175.png"
+            alt=""
+            decoding="async"
+          />
+          <img class="landing-side landing-side--right" src="./9305720.png" alt="" decoding="async" />
+        </div>
+
         <div class="intro-layout">
           <div class="panel-intro">
             <h1 id="chart-title">How many comments target each hate category?</h1>
@@ -38,7 +48,7 @@
             </div>
             <div class="poem-nav">
               <nav class="poem-dots" id="poem-dots" aria-label="Navigate stanzas"></nav>
-              <span class="poem-hint" id="poem-hint" aria-live="polite">keep exploring to reveal more</span>
+              <span class="poem-hint" id="poem-hint" aria-live="polite">use dots to browse stanzas</span>
               <button type="button" class="poem-expand-btn" id="poem-expand-btn" aria-label="Read full poem">Read full poem</button>
             </div>
           </div>
@@ -48,8 +58,41 @@
         </section>
 
         <p class="content-warning" id="content-warning" hidden>
-          Content note: activating the pond reveals sampled hateful language from the dataset for analysis and critique.
+          Content note: activating the pond reveals sampled hateful language from the dataset. Please read with discretion.
         </p>
+
+        <div
+          class="poem-fullscreen"
+          id="poem-fullscreen"
+          hidden
+          aria-hidden="true"
+        >
+          <div class="poem-fullscreen__backdrop" id="poem-fullscreen-backdrop"></div>
+          <div
+            class="poem-fullscreen__dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="poem-fullscreen-heading"
+          >
+            <header class="poem-fullscreen__header">
+              <div class="poem-fullscreen__mast">
+                <p class="poem-fullscreen__eyebrow">Poem</p>
+                <h2 class="poem-fullscreen__title" id="poem-fullscreen-heading">The Scalable Stone</h2>
+              </div>
+              <button
+                type="button"
+                class="poem-fullscreen__close"
+                id="poem-fullscreen-close"
+                aria-label="Close full poem"
+              >
+                Close
+              </button>
+            </header>
+            <div class="poem-fullscreen__scroll">
+              <div class="poem-fullscreen__body" id="poem-fullscreen-body"></div>
+            </div>
+          </div>
+        </div>
 
         <section class="chart-stage" aria-labelledby="bars-heading">
           <div class="chart-header">
@@ -67,19 +110,31 @@
           </div>
         </section>
 
-        <section class=”stats-row” aria-label=”Dataset summary”>
-          <article class=”stat”>
-            <p class=”stat-label”>Total comments</p>
-            <p class=”stat-value” id=”total-comments”>--</p>
+        <section class="stats-row" aria-label="Dataset summary">
+          <article class="stat">
+            <p class="stat-label">Total comments</p>
+            <p class="stat-value" id="total-comments">--</p>
           </article>
-          <article class=”stat”>
-            <p class=”stat-label”>Comments with multiple targets</p>
-            <p class=”stat-value” id=”multiple-targets”>--</p>
+          <article class="stat">
+            <p class="stat-label">Comments with multiple targets</p>
+            <p class="stat-value" id="multiple-targets">--</p>
           </article>
-          <article class=”stat stat--about”>
-            <p class=”stat-label”>About this dataset</p>
-            <p class=”stat-copy”>
-              20,109 social media comments from the <a class=”stat-link” href=”https://www.kaggle.com/datasets/waalbannyantudre/hate-speech-detection-curated-dataset” target=”_blank” rel=”noopener”>CyberBullying Detection Dataset</a> (Kaggle), annotated for hate speech across five target categories by multiple reviewers.
+          <article class="stat">
+            <p class="stat-label">Hate speech target types</p>
+            <p class="stat-value">5</p>
+          </article>
+          <article class="stat stat--about">
+            <p class="stat-label">About this dataset</p>
+            <p class="stat-copy">
+              20,109 social media comments from the
+              <a
+                class="stat-link"
+                href="https://www.kaggle.com/datasets/sayankr007/cyber-bullying-data-for-multi-label-classification"
+                target="_blank"
+                rel="noopener"
+                >CyberBullying Detection Dataset</a
+              >
+              (Kaggle), curated for multi-label classification and annotated across multiple target types such as race, religion, gender, sexual orientation, and miscellaneous.
             </p>
           </article>
         </section>

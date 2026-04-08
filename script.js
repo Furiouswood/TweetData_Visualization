@@ -26,6 +26,10 @@ const poemStanzaText = document.getElementById("poem-stanza-text");
 const poemDotsEl = document.getElementById("poem-dots");
 const poemHint = document.getElementById("poem-hint");
 const poemExpandBtn = document.getElementById("poem-expand-btn");
+const poemFullscreen = document.getElementById("poem-fullscreen");
+const poemFullscreenBody = document.getElementById("poem-fullscreen-body");
+const poemFullscreenBackdrop = document.getElementById("poem-fullscreen-backdrop");
+const poemFullscreenClose = document.getElementById("poem-fullscreen-close");
 
 const POEM_STANZA_LINES = [
   ["A tweet is a pebble \u2014", "tiny enough to toss,", "light enough to deny.", "But the river remembers every stone,", "and the data shows how the ripples multiply."],
@@ -871,18 +875,66 @@ function renderPoemDots() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "poem-dot";
-    btn.setAttribute("aria-label", `Stanza ${index + 1}`);
-
-    if (index < poemMaxRevealed) {
-      btn.classList.add("poem-dot--unlocked");
-      btn.addEventListener("click", () => showPoemStanza(index));
-    }
+    btn.setAttribute("aria-label", `Stanza ${index + 1} of ${POEM_STANZA_LINES.length}`);
+    btn.addEventListener("click", () => showPoemStanza(index));
     if (index === poemCurrentIndex) {
       btn.classList.add("poem-dot--active");
     }
 
     poemDotsEl.appendChild(btn);
   });
+}
+
+function closePoemFullscreen() {
+  if (!poemFullscreen || poemFullscreen.hidden) {
+    return;
+  }
+
+  poemFullscreen.hidden = true;
+  poemFullscreen.setAttribute("aria-hidden", "true");
+  poemFullscreen.classList.remove("poem-fullscreen--instant");
+  document.body.style.overflow = "";
+  if (poemFullscreenBody) {
+    poemFullscreenBody.innerHTML = "";
+  }
+  poemExpandBtn?.focus();
+}
+
+function openPoemFullscreen() {
+  if (!poemFullscreen || !poemFullscreenBody) {
+    return;
+  }
+
+  poemFullscreenBody.innerHTML = "";
+  const staggerMs = prefersReducedMotion() ? 0 : 95;
+  let lineIndex = 0;
+
+  POEM_STANZA_LINES.forEach((stanzaLines) => {
+    const stanzaEl = document.createElement("div");
+    stanzaEl.className = "poem-full-stanza";
+
+    stanzaLines.forEach((line) => {
+      const lineEl = document.createElement("p");
+      lineEl.className = "poem-full-line";
+      lineEl.textContent = line;
+      lineEl.style.setProperty("--poem-line-delay", `${lineIndex * staggerMs}ms`);
+      stanzaEl.appendChild(lineEl);
+      lineIndex += 1;
+    });
+
+    poemFullscreenBody.appendChild(stanzaEl);
+  });
+
+  if (prefersReducedMotion()) {
+    poemFullscreen.classList.add("poem-fullscreen--instant");
+  } else {
+    poemFullscreen.classList.remove("poem-fullscreen--instant");
+  }
+
+  poemFullscreen.hidden = false;
+  poemFullscreen.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  poemFullscreenClose?.focus();
 }
 
 function showPoemStanza(index) {
@@ -919,12 +971,8 @@ function updatePoem(view) {
   const allRevealed = poemMaxRevealed >= POEM_STANZA_LINES.length;
 
   if (poemHint) {
-    poemHint.textContent = allRevealed ? "full poem revealed" : "keep exploring to reveal more";
+    poemHint.textContent = allRevealed ? "full poem revealed" : "use dots to browse stanzas";
     poemHint.classList.toggle("poem-hint--hidden", allRevealed);
-  }
-
-  if (poemExpandBtn) {
-    poemExpandBtn.classList.toggle("poem-expand-btn--done", allRevealed);
   }
 }
 
@@ -1127,20 +1175,24 @@ async function initChart() {
 
   if (poemExpandBtn) {
     poemExpandBtn.addEventListener("click", () => {
-      const firstNew = poemMaxRevealed;
-      poemMaxRevealed = POEM_STANZA_LINES.length;
-      renderPoemDots();
-      showPoemStanza(firstNew < POEM_STANZA_LINES.length ? firstNew : POEM_STANZA_LINES.length - 1);
-      if (poemHint) {
-        poemHint.textContent = "full poem revealed";
-        poemHint.classList.add("poem-hint--hidden");
-      }
-      poemExpandBtn.classList.add("poem-expand-btn--done");
+      openPoemFullscreen();
     });
   }
 
+  poemFullscreenBackdrop?.addEventListener("click", () => {
+    closePoemFullscreen();
+  });
+
+  poemFullscreenClose?.addEventListener("click", () => {
+    closePoemFullscreen();
+  });
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      if (poemFullscreen && !poemFullscreen.hidden) {
+        closePoemFullscreen();
+        return;
+      }
       handleBackClick();
     }
   });
