@@ -439,6 +439,25 @@ h2 {
   margin-top: 1.75rem;
 }
 
+.stat--about {
+  grid-column: 1 / -1;
+  min-height: auto;
+}
+
+.stat--about .stat-copy {
+  max-width: 72ch;
+}
+
+.stat-link {
+  color: var(--accent-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.stat-link:hover {
+  color: var(--accent);
+}
+
 .stat {
   min-height: 138px;
   padding: 1.2rem;
