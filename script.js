@@ -1156,8 +1156,11 @@ async function initChart() {
       }
     });
   } catch (error) {
+    const isFileProtocol = window.location.protocol === "file:";
     renderError(
-      "Run `python3 scripts/preprocess_hatexplain.py` to generate the chart data files, then reload the page."
+      isFileProtocol
+        ? "Open this page through a local server (e.g. VS Code Live Server) rather than directly from the file system."
+        : "Chart data could not be loaded. Please reload the page."
     );
     console.error(error);
   }
