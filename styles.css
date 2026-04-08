@@ -252,8 +252,8 @@ h2 {
 .chart-header {
   display: flex;
   gap: 1rem;
-  align-items: end;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-end;
   padding-bottom: 1.25rem;
   border-bottom: 1px solid var(--line);
 }
@@ -558,6 +558,32 @@ h2 {
 .poem-hint--hidden {
   opacity: 0;
   pointer-events: none;
+}
+
+.poem-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent-deep);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+
+.poem-expand-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.poem-expand-btn--done {
+  display: none;
 }
 
 .poem-stage {

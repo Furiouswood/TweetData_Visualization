@@ -26,6 +26,7 @@ const APP_VIEWS = {
 const poemStanzaText = document.getElementById("poem-stanza-text");
 const poemDotsEl = document.getElementById("poem-dots");
 const poemHint = document.getElementById("poem-hint");
+const poemExpandBtn = document.getElementById("poem-expand-btn");
 
 const POEM_STANZA_LINES = [
   ["A tweet is a pebble \u2014", "tiny enough to toss,", "light enough to deny.", "But the river remembers every stone,", "and the data shows how the ripples multiply."],
@@ -924,10 +925,15 @@ function updatePoem(view) {
   // Cross-fade to the first newly revealed stanza
   showPoemStanza(firstNewIndex);
 
+  const allRevealed = poemMaxRevealed >= POEM_STANZA_LINES.length;
+
   if (poemHint) {
-    const allRevealed = poemMaxRevealed >= POEM_STANZA_LINES.length;
     poemHint.textContent = allRevealed ? "full poem revealed" : "keep exploring to reveal more";
     poemHint.classList.toggle("poem-hint--hidden", allRevealed);
+  }
+
+  if (poemExpandBtn) {
+    poemExpandBtn.classList.toggle("poem-expand-btn--done", allRevealed);
   }
 }
 
@@ -1126,6 +1132,20 @@ async function initChart() {
 
   if (backButton) {
     backButton.addEventListener("click", handleBackClick);
+  }
+
+  if (poemExpandBtn) {
+    poemExpandBtn.addEventListener("click", () => {
+      const firstNew = poemMaxRevealed;
+      poemMaxRevealed = POEM_STANZA_LINES.length;
+      renderPoemDots();
+      showPoemStanza(firstNew < POEM_STANZA_LINES.length ? firstNew : POEM_STANZA_LINES.length - 1);
+      if (poemHint) {
+        poemHint.textContent = "full poem revealed";
+        poemHint.classList.add("poem-hint--hidden");
+      }
+      poemExpandBtn.classList.add("poem-expand-btn--done");
+    });
   }
 
   document.addEventListener("keydown", (event) => {
