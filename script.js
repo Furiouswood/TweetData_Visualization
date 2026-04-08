@@ -9,7 +9,6 @@ const uiAnnouncer = document.getElementById("ui-announcer");
 const totalComments = document.getElementById("total-comments");
 const multipleTargets = document.getElementById("multiple-targets");
 const commentTotal = document.getElementById("comment-total");
-const chartNote = document.getElementById("chart-note");
 const drillDownHeader = document.getElementById("drill-down-header");
 const drillDownTitle = document.getElementById("drill-down-title");
 const backButton = document.getElementById("back-button");
@@ -270,17 +269,11 @@ function updateMetaText() {
 
   if (appState.view === APP_VIEWS.OVERVIEW) {
     commentTotal.textContent = `${formatNumber(chartData.totalComments)} rows processed`;
-    chartNote.textContent =
-      `One comment can contribute to more than one bar because the dataset allows multiple target types per comment. ` +
-      `This SVG chart is drawn with D3, and each stone image represents ${formatNumber(STONE_UNIT)} comments.`;
     return;
   }
 
   if (appState.view === APP_VIEWS.BREAKDOWN && appState.activeCategory) {
     commentTotal.textContent = `${appState.activeCategory.label} breakdown`;
-    chartNote.textContent =
-      `Distribution within the ${appState.activeCategory.label} category. ` +
-      `Each stone represents ${formatNumber(STONE_UNIT)} comments. Click a subcategory to activate the pond and D3 comment stream.`;
     return;
   }
 
@@ -288,8 +281,6 @@ function updateMetaText() {
     const sampleCount = categoryComments?.[appState.activeSubcategory.label]?.length || 0;
     commentTotal.textContent =
       sampleCount > 0 ? `${formatNumber(sampleCount)} sampled comments` : "Pond active";
-    chartNote.textContent =
-      `The chart stays visible while D3 animates sampled ${appState.activeSubcategory.label} comments across the panel from left to right.`;
   }
 }
 
